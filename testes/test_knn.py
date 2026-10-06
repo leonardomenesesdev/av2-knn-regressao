@@ -3,7 +3,9 @@ import os
 import sys
 import time
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, RAIZ)                          # common.py
+sys.path.insert(0, os.path.join(RAIZ, "regressao"))  # knn_regressor.py
 import numpy as np
 
 from common import (kfold_indices, mae, r2_adjusted, r2_score, rmse,

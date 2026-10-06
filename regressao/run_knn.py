@@ -2,9 +2,12 @@
 import argparse
 import csv
 import os
+import sys
 
 import numpy as np
 
+# common.py fica na raiz do projeto (pasta acima de regressao/)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common import (Timer, kfold_indices, load_dataset, mae, r2_adjusted,
                     r2_score, rmse, summarize, zscore_apply, zscore_fit)
 from knn_regressor import KNNRegressor

@@ -1,11 +1,13 @@
 # Regressão com kNN (house_16H, OpenML 574)
 
+Estrutura: `common.py` (compartilhado) na raiz; `regressao/` com o kNN (e a regressão linear do Anderson).
+
 Só NumPy + biblioteca padrão (matplotlib apenas para o gráfico). Sem pandas e sem scikit-learn.
 
 ## Como rodar
 ```
 python testes/test_knn.py                      # testes (dados sintéticos)
-python run_knn.py --data data/<arquivo>.arff   # experimento (ou .csv)
+python regressao/run_knn.py --data data/<arquivo>.arff   # experimento (ou .csv)
 ```
 Opções: `--target price`, `--seed 42`, `--folds 5`, `--k N` (pula a escolha de k), `--out resultados`.
 No terminal do Windows, se os acentos saírem quebrados: `set PYTHONUTF8=1`.
