@@ -1,16 +1,10 @@
-"""Base comum do projeto (regressão e classificação).
-
-Só usa NumPy e a biblioteca padrão. Sem pandas e sem scikit-learn.
-"""
 import csv
 import time
 
 import numpy as np
 
-
-# ---------------------------------------------------------------- dados
+# converte texto em float ou, a depender do seu formato, vira nan
 def _para_float(txt):
-    """Converte texto em float; '?' ou vazio vira NaN (valor faltante)."""
     txt = txt.strip().strip("'\"")
     if txt == "" or txt == "?":
         return np.nan
@@ -18,7 +12,6 @@ def _para_float(txt):
 
 
 def _ler_arff(path):
-    """Parser manual de ARFF: lê @attribute e depois as linhas após @data."""
     nomes, linhas, em_dados = [], [], False
     with open(path, encoding="utf-8", errors="ignore") as f:
         for linha in f:
@@ -45,13 +38,7 @@ def _ler_csv(path):
         linhas = [[_para_float(c) for c in r] for r in leitor if r]
     return nomes, linhas
 
-
 def load_dataset(path, target=None):
-    """Carrega .arff ou .csv e devolve (X, y, feature_names, target_name).
-
-    O alvo é a coluna `target` ou, se não informada, a ÚLTIMA coluna.
-    X e y são arrays float64.
-    """
     if path.lower().endswith(".arff"):
         nomes, linhas = _ler_arff(path)
     else:
@@ -63,13 +50,10 @@ def load_dataset(path, target=None):
     feature_names = [n for i, n in enumerate(nomes) if i != j]
     return X, y, feature_names, nomes[j]
 
-
-# ------------------------------------------------------- validação cruzada
 def kfold_indices(n, k=5, seed=42):
-    """Lista de (idx_treino, idx_teste) com embaralhamento reprodutível."""
     rng = np.random.default_rng(seed)
     perm = rng.permutation(n)
-    partes = np.array_split(perm, k)                    # k blocos quase iguais
+    partes = np.array_split(perm, k)                  
     folds = []
     for i in range(k):
         treino = np.concatenate([partes[j] for j in range(k) if j != i])
@@ -77,7 +61,6 @@ def kfold_indices(n, k=5, seed=42):
     return folds
 
 
-# --------------------------------------------------------- normalização
 def zscore_fit(X_train):
     """Média e desvio do TREINO (std=0 vira 1 para não dividir por zero)."""
     mean = X_train.mean(axis=0)
@@ -89,36 +72,31 @@ def zscore_fit(X_train):
 def zscore_apply(X, mean, std):
     return (X - mean) / std
 
+# MÉTRICAS
 
-# --------------------------------------------------------------- métricas
 def r2_score(y, y_pred):
-    """R² = 1 - SQres/SQtot."""
     sq_res = np.sum((y - y_pred) ** 2)
     sq_tot = np.sum((y - y.mean()) ** 2)
     return float(1.0 - sq_res / sq_tot)
 
 
 def r2_adjusted(y, y_pred, n_features):
-    """R² ajustado = 1 - (1 - R²)(n - 1)/(n - p - 1)."""
     n = len(y)
     r2 = r2_score(y, y_pred)
     return float(1.0 - (1.0 - r2) * (n - 1) / (n - n_features - 1))
 
 
 def mae(y, y_pred):
-    """Erro absoluto médio."""
     return float(np.mean(np.abs(y - y_pred)))
 
 
 def rmse(y, y_pred):
-    """Raiz do erro quadrático médio."""
     return float(np.sqrt(np.mean((y - y_pred) ** 2)))
 
 
-# ------------------------------------------------------------------ tempo
-class Timer:
-    """Uso: with Timer() as t: ...; depois t.elapsed (segundos)."""
+#TEMPO
 
+class Timer:
     def __enter__(self):
         self._ini = time.perf_counter()
         return self
