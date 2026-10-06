@@ -1,89 +1,17 @@
-from importlib import machinery
-from importlib import machinery
-import csv
-import numpy as np
+import os
+import sys
 import time
+
+import numpy as np
+
+# common.py fica na raiz do projeto (pasta acima de regressao_linear_multipla/)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from common import (kfold_indices, load_dataset, mae, r2_adjusted, r2_score,
+                    rmse, zscore_apply, zscore_fit)
 
 caminho_dataset_treino = "data/house_16H.arff"
 K_FOLDS = 5 # número de folds para validação cruzada
 SEED = 42 # semente para reprodutibilidade
-
-# ---------------------------------------------------------------
-# Etapa 0 - base comum (combinar a interface com o seu amigo)
-# ---------------------------------------------------------------
-def ler_arff(arquivo):
-    """Parser manual de ARFF numérico. Retorna nomes das colunas, X e y (última coluna)."""
-    nomes, linhas, em_dados = [], [], False
-    with open(arquivo, encoding="utf-8") as f:
-        for linha in f:
-            s = linha.strip()
-            if not s or s.startswith("%"):
-                continue
-            baixo = s.lower()
-            if baixo.startswith("@attribute"):
-                nomes.append(s.split()[1])
-            elif baixo.startswith("@data"):
-                em_dados = True
-            elif em_dados:
-                linhas.append([float(v) for v in s.split(",")])
-    dados = np.array(linhas)
-    return nomes, dados[:, :-1], dados[:, -1]
-
-# Retorna os índices dos folds para treino e teste
-def kfold_indices(n, k_folds, seed=None):
-    # Cria semente para reprodutibilidade
-    if seed is not None:
-        rng = np.random.default_rng(seed)
-    else:
-        rng = np.random.default_rng()
-    # Embaralha os índices
-    indices = np.arange(n)
-    rng.shuffle(indices)
-    # Define o tamanho de cada fold
-    fold_size = n // k_folds
-    # Cria os folds
-    for i in range(k_folds):
-        inicio = i * fold_size
-        fim = inicio + fold_size if i < k_folds - 1 else n
-        indice_teste = indices[inicio:fim]
-        indice_treino = np.concatenate([indices[:inicio], indices[fim:]])
-        yield indice_treino, indice_teste
-
-# Normalização z-score (padronização)
-def zscore_fit(X):
-    medias = np.mean(X, axis=0)
-    desvios = np.std(X, axis=0)
-    desvios[desvios == 0] = 1.0 # Evita divisão por zero
-    return medias, desvios
-
-# Transforma os dados usando a normalização z-score
-def zscore_transform(X, medias, desvios):
-    return (X - medias) / desvios
-
-# Calcula o R² (coeficiente de determinação)
-def r2_score(y_true, y_pred):
-    ss_res = np.sum((y_true - y_pred) ** 2)
-    ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
-    return 1 - ss_res / ss_tot
-
-# Calcula o R² ajustado
-def r2_ajustado(y_true, y_pred, n_features):
-    # R² Ajustado = 1 - [(1 - R²) * (n - 1) / (n - p - 1)]
-    # R² = Coeficiente de Determinação
-    # n = número de observações
-    # p = número de variáveis independentes
-    r2 = r2_score(y_true, y_pred)
-    n = len(y_true)
-    p = n_features
-    return 1 - (1 - r2) * (n - 1) / (n - p - 1)
-
-# Calcula o MAE (Mean Absolute Error)
-def mae(y_true, y_pred):
-    return np.mean(np.abs(y_true - y_pred))
-
-# Calcula o RMSE (Root Mean Squared Error)
-def rmse(y_true, y_pred):
-    return np.sqrt(np.mean((y_true - y_pred) ** 2))
 
 # ---------------------------------------------------------------
 # Etapa 1 - Regressão Linear Múltipla (sua parte)
@@ -116,8 +44,8 @@ def rodar_experimento(X, y, metodo="solve"):
  
     for treino, teste in kfold_indices(len(y), K_FOLDS, SEED):
         mu, sigma = zscore_fit(X[treino])
-        X_tr = zscore_transform(X[treino], mu, sigma)
-        X_te = zscore_transform(X[teste], mu, sigma)
+        X_tr = zscore_apply(X[treino], mu, sigma)
+        X_te = zscore_apply(X[teste], mu, sigma)
  
         modelo = MRegression(metodo)
  
@@ -130,7 +58,7 @@ def rodar_experimento(X, y, metodo="solve"):
         res["t_teste"].append(time.perf_counter() - t0)
  
         res["R2"].append(r2_score(y[teste], y_pred))
-        res["R2_aj"].append(r2_ajustado(y[teste], y_pred, p))
+        res["R2_aj"].append(r2_adjusted(y[teste], y_pred, p))
         res["MAE"].append(mae(y[teste], y_pred))
         res["RMSE"].append(rmse(y[teste], y_pred))
  
@@ -145,14 +73,13 @@ def imprimir_tabela(res, nome):
 
 
 if __name__ == "__main__":
-    import os
     # Ajusta o caminho relativo caso execute da raiz ou da subpasta
     caminho = caminho_dataset_treino
     if not os.path.exists(caminho):
         caminho = os.path.join(os.path.dirname(__file__), "..", "data", "house_16H.arff")
 
     print(f"Carregando: {caminho}...")
-    nomes, X, y = ler_arff(caminho)
+    X, y, nomes, alvo = load_dataset(caminho)
     print(f"Dataset carregado: {X.shape[0]} amostras, {X.shape[1]} atributos.")
 
     res = rodar_experimento(X, y)
