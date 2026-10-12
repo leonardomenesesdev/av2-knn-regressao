@@ -1,12 +1,10 @@
-"""Experimento kNN regressor: escolha de k + avaliação final com 5-fold."""
 import argparse
 import csv
 import os
 import sys
-
 import numpy as np
 
-# common.py fica na raiz do projeto (pasta acima de regressao/)
+#localmente adiciona o diretório pai ao sys.path, permitindo importar common.py e knn_regressor.py
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common import (Timer, kfold_indices, load_dataset, mae, r2_adjusted,
                     r2_score, rmse, summarize, zscore_apply, zscore_fit)
@@ -16,11 +14,8 @@ KS = [1, 3, 5, 7, 11, 15, 21]
 METRICAS = ["euclidean", "manhattan"]
 NOMES = {"euclidean": "kNN (Euclidiana)", "manhattan": "kNN (Manhattan)"}
 
-
+# escolhe o melhor k para cada métrica, usando validação cruzada interna (80% treino, 20% validação)
 def escolher_k(X, y, folds, seed):
-    """Escolhe k por validação INTERNA: dentro do treino de cada fold separa
-    20% para validar; o conjunto de teste do fold não é usado.
-    Retorna o R² médio de validação por distância e por k."""
     r2 = {m: {k: [] for k in KS} for m in METRICAS}
     for f, (tr, _) in enumerate(folds):
         rng = np.random.default_rng(seed + f)
@@ -36,8 +31,8 @@ def escolher_k(X, y, folds, seed):
     return {m: {k: float(np.mean(v)) for k, v in r2[m].items()} for m in METRICAS}
 
 
+#faz uma avaliação do modelo usando validação cruzada, retornando métricas de desempenho
 def avaliar(X, y, folds, metric, k):
-    """Avaliação final: normaliza com o treino, mede tempos e métricas por fold."""
     linhas = []
     for tr, te in folds:
         mean, std = zscore_fit(X[tr])

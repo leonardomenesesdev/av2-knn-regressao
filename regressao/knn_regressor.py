@@ -6,6 +6,7 @@ import numpy as np
 # y: rótulo da amostra (preço, nesse caso)
 # A (usada em _distancias): lote de amostras de teste
 # B (usada em _distancias): treino guardado no fit
+# batch_size: tamanho do lote de amostras - importante pra nâo estourar a memória
 class KNNRegressor:
     def __init__(self, k=5, metric="euclidean", batch_size=500):
         if metric not in ("euclidean", "manhattan"):
@@ -37,32 +38,29 @@ class KNNRegressor:
             d += np.abs(A[:, j][:, None] - B[:, j][None, :])
         return d
 
+    # prevê com o k do modelo, retornando um array de previsões
     def predict(self, X):
-        """Prevê com o k do objeto."""
         return self.predict_multi(X, [self.k])[self.k]
 
+    # prevê com vários k ao mesmo tempo, retornando um dicionário {k: y_pred}
     def predict_multi(self, X, ks):
-        """Prevê para vários k de uma vez (reaproveita o cálculo das distâncias).
-
-        Retorna {k: predições}. Processa em lotes para economizar memória.
-        """
-        X = np.asarray(X, dtype=np.float64)
-        kmax = max(ks)
+        X = np.asarray(X, dtype=np.float64) #garante que X será um array numpy
+        kmax = max(ks) # retorna o maior k (maior número de vizinhos), permitindo calcular as distâncias uma vez só
         if kmax > len(self.X_):
             raise ValueError("k maior que o número de amostras de treino")
-        saidas = {k: np.empty(len(X)) for k in ks}
+        saidas = {k: np.empty(len(X)) for k in ks} # cria um dicionário vazio para armazenar as previsões de cada k
         for ini in range(0, len(X), self.batch_size):
             fim = ini + self.batch_size
-            D = self._distancias(X[ini:fim])
-            # argpartition separa os kmax menores sem ordenar tudo
-            if kmax < D.shape[1]:
-                idx = np.argpartition(D, kmax - 1, axis=1)[:, :kmax]
+            D = self._distancias(X[ini:fim]) #matriz de distâncias (lote, treino)
+            if kmax < D.shape[1]: #D.shape[1] - > número de amostras de treino
+                #se kmax for menor que o n° de amostras de treino, pega só os kmax mais próximos 
+                idx = np.argpartition(D, kmax - 1, axis=1)[:, :kmax] 
             else:
-                idx = np.tile(np.arange(D.shape[1]), (D.shape[0], 1))
+                idx = np.tile(np.arange(D.shape[1]), (D.shape[0], 1)) # pega todas as amostras de treino (D.shape[1]) para cada amostra do lote (D.shape[0])
             # ordena só esses kmax, para pegar os k menores de cada k
             ordem = np.argsort(np.take_along_axis(D, idx, axis=1), axis=1)
-            idx = np.take_along_axis(idx, ordem, axis=1)
-            alvos = self.y_[idx]                        # (lote, kmax)
+            idx = np.take_along_axis(idx, ordem, axis=1) #indexa os kmax vizinhos mais próximos
+            alvos = self.y_[idx] # pega os rótulos correspondentes aos kmax vizinhos mais próximos
             for k in ks:
                 saidas[k][ini:fim] = alvos[:, :k].mean(axis=1)
         return saidas
